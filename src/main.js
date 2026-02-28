@@ -1,7 +1,6 @@
 import {
   computeOutputSize,
   fitRect,
-  normalizeSelection,
   parseRatio,
   pointToNormalized,
   toSourceRect
@@ -22,6 +21,7 @@ const elements = {
   aspectMode: document.getElementById("aspectMode"),
   targetRatio: document.getElementById("targetRatio"),
   enableCrop: document.getElementById("enableCrop"),
+  lockCropAspect: document.getElementById("lockCropAspect"),
   showGrid: document.getElementById("showGrid"),
   freezeFrame: document.getElementById("freezeFrame"),
   statusText: document.getElementById("statusText"),
@@ -41,7 +41,10 @@ const state = {
   selectStart: null,
   selectCurrent: null,
   isMovingSelection: false,
-  moveOffset: null
+  moveOffset: null,
+  isResizingSelection: false,
+  resizeAnchor: null,
+  resizeSigns: null
 };
 
 function setStatus(message, isError = false) {
@@ -95,14 +98,104 @@ function sourceRectFromSelection() {
   );
 }
 
-function drawOriginalFrame() {
-  const { width: dstW, height: dstH } = elements.originalCanvas;
-  const drawRect = fitRect(
+function getVideoDrawRect() {
+  return fitRect(
     elements.video.videoWidth,
     elements.video.videoHeight,
-    dstW,
-    dstH
+    elements.originalCanvas.width,
+    elements.originalCanvas.height
   );
+}
+
+function getSelectionAspectRatio() {
+  if (!elements.lockCropAspect.checked || !state.sourceReady) {
+    return null;
+  }
+  const targetRatio = parseRatio(elements.targetRatio.value);
+  if (targetRatio) {
+    return targetRatio;
+  }
+  return elements.video.videoWidth / elements.video.videoHeight;
+}
+
+function getSelectionHandles(selection) {
+  return {
+    nw: { x: selection.x, y: selection.y },
+    ne: { x: selection.x + selection.width, y: selection.y },
+    sw: { x: selection.x, y: selection.y + selection.height },
+    se: { x: selection.x + selection.width, y: selection.y + selection.height }
+  };
+}
+
+function buildSelectionFromAnchor(anchor, point, forcedSigns = null) {
+  const xSign = forcedSigns?.x ?? (point.x >= anchor.x ? 1 : -1);
+  const ySign = forcedSigns?.y ?? (point.y >= anchor.y ? 1 : -1);
+  const minBase = 0.01;
+  const targetAspect = getSelectionAspectRatio();
+
+  const maxWidth = xSign > 0 ? 1 - anchor.x : anchor.x;
+  const maxHeight = ySign > 0 ? 1 - anchor.y : anchor.y;
+
+  let width = clamp(Math.abs(point.x - anchor.x), minBase, maxWidth);
+  let height = clamp(Math.abs(point.y - anchor.y), minBase, maxHeight);
+
+  if (targetAspect) {
+    const minWidth = minBase;
+    const minHeight = minBase;
+    if (width / height > targetAspect) {
+      width = height * targetAspect;
+    } else {
+      height = width / targetAspect;
+    }
+
+    if (width > maxWidth) {
+      width = maxWidth;
+      height = width / targetAspect;
+    }
+    if (height > maxHeight) {
+      height = maxHeight;
+      width = height * targetAspect;
+    }
+
+    width = clamp(width, Math.min(minWidth, maxWidth), maxWidth);
+    height = clamp(height, Math.min(minHeight, maxHeight), maxHeight);
+  }
+
+  const targetX = anchor.x + xSign * width;
+  const targetY = anchor.y + ySign * height;
+
+  return {
+    x: Math.min(anchor.x, targetX),
+    y: Math.min(anchor.y, targetY),
+    width: Math.max(minBase, Math.abs(targetX - anchor.x)),
+    height: Math.max(minBase, Math.abs(targetY - anchor.y))
+  };
+}
+
+function getHandleAtPoint(point, selection) {
+  if (!selection || !state.sourceReady) {
+    return null;
+  }
+
+  const drawRect = getVideoDrawRect();
+  const thresholdX = 10 / drawRect.width;
+  const thresholdY = 10 / drawRect.height;
+  const handles = getSelectionHandles(selection);
+
+  for (const [name, handle] of Object.entries(handles)) {
+    if (
+      Math.abs(point.x - handle.x) <= thresholdX &&
+      Math.abs(point.y - handle.y) <= thresholdY
+    ) {
+      return name;
+    }
+  }
+  return null;
+}
+
+function drawOriginalFrame() {
+  const { width: dstW, height: dstH } = elements.originalCanvas;
+  const drawRect = getVideoDrawRect();
 
   originalCtx.fillStyle = "#000";
   originalCtx.fillRect(0, 0, dstW, dstH);
@@ -130,11 +223,19 @@ function drawOriginalFrame() {
     originalCtx.strokeRect(sx, sy, sw, sh);
     originalCtx.fillStyle = "rgba(77,214,255,0.1)";
     originalCtx.fillRect(sx, sy, sw, sh);
+
+    const handles = getSelectionHandles(state.selection);
+    originalCtx.fillStyle = "#4dd6ff";
+    for (const handle of Object.values(handles)) {
+      const hx = drawRect.x + handle.x * drawRect.width;
+      const hy = drawRect.y + handle.y * drawRect.height;
+      originalCtx.fillRect(hx - 4, hy - 4, 8, 8);
+    }
     originalCtx.restore();
   }
 
   if (state.isSelecting && state.selectStart && state.selectCurrent) {
-    const preview = normalizeSelection(state.selectStart, state.selectCurrent);
+    const preview = buildSelectionFromAnchor(state.selectStart, state.selectCurrent);
     const sx = drawRect.x + preview.x * drawRect.width;
     const sy = drawRect.y + preview.y * drawRect.height;
     const sw = preview.width * drawRect.width;
@@ -210,12 +311,7 @@ function isPointInsideSelection(point, selection) {
 
 function selectionPointFromEvent(event) {
   const canvasPoint = pointFromEvent(event);
-  const drawRect = fitRect(
-    elements.video.videoWidth,
-    elements.video.videoHeight,
-    elements.originalCanvas.width,
-    elements.originalCanvas.height
-  );
+  const drawRect = getVideoDrawRect();
   return pointToNormalized(canvasPoint.x, canvasPoint.y, drawRect);
 }
 
@@ -307,6 +403,7 @@ elements.targetRatio.addEventListener("change", () => {
   renderFrame();
 });
 elements.enableCrop.addEventListener("change", renderFrame);
+elements.lockCropAspect.addEventListener("change", renderFrame);
 
 elements.resetCropBtn.addEventListener("click", () => {
   state.selection = null;
@@ -315,6 +412,9 @@ elements.resetCropBtn.addEventListener("click", () => {
   state.isSelecting = false;
   state.isMovingSelection = false;
   state.moveOffset = null;
+  state.isResizingSelection = false;
+  state.resizeAnchor = null;
+  state.resizeSigns = null;
   renderFrame();
 });
 
@@ -323,7 +423,17 @@ elements.originalCanvas.addEventListener("pointerdown", (event) => {
     return;
   }
   const currentPoint = selectionPointFromEvent(event);
-  if (isPointInsideSelection(currentPoint, state.selection)) {
+  const handle = getHandleAtPoint(currentPoint, state.selection);
+  if (handle) {
+    const xSign = handle.includes("e") ? 1 : -1;
+    const ySign = handle.includes("s") ? 1 : -1;
+    state.isResizingSelection = true;
+    state.resizeSigns = { x: xSign, y: ySign };
+    state.resizeAnchor = {
+      x: xSign > 0 ? state.selection.x : state.selection.x + state.selection.width,
+      y: ySign > 0 ? state.selection.y : state.selection.y + state.selection.height
+    };
+  } else if (isPointInsideSelection(currentPoint, state.selection)) {
     state.isMovingSelection = true;
     state.moveOffset = {
       x: currentPoint.x - state.selection.x,
@@ -342,6 +452,16 @@ elements.originalCanvas.addEventListener("pointermove", (event) => {
     return;
   }
   const currentPoint = selectionPointFromEvent(event);
+
+  if (state.isResizingSelection && state.resizeAnchor && state.resizeSigns) {
+    state.selection = buildSelectionFromAnchor(
+      state.resizeAnchor,
+      currentPoint,
+      state.resizeSigns
+    );
+    renderFrame();
+    return;
+  }
 
   if (state.isMovingSelection && state.selection && state.moveOffset) {
     const nextX = clamp(currentPoint.x - state.moveOffset.x, 0, 1 - state.selection.width);
@@ -363,6 +483,15 @@ elements.originalCanvas.addEventListener("pointermove", (event) => {
 });
 
 elements.originalCanvas.addEventListener("pointerup", (event) => {
+  if (state.isResizingSelection) {
+    state.isResizingSelection = false;
+    state.resizeAnchor = null;
+    state.resizeSigns = null;
+    elements.originalCanvas.releasePointerCapture(event.pointerId);
+    renderFrame();
+    return;
+  }
+
   if (state.isMovingSelection) {
     state.isMovingSelection = false;
     state.moveOffset = null;
@@ -374,7 +503,7 @@ elements.originalCanvas.addEventListener("pointerup", (event) => {
   if (!state.isSelecting || !state.selectStart || !state.selectCurrent) {
     return;
   }
-  state.selection = normalizeSelection(state.selectStart, state.selectCurrent);
+  state.selection = buildSelectionFromAnchor(state.selectStart, state.selectCurrent);
   state.isSelecting = false;
   state.selectStart = null;
   state.selectCurrent = null;
@@ -388,6 +517,9 @@ elements.originalCanvas.addEventListener("pointercancel", () => {
   state.selectCurrent = null;
   state.isMovingSelection = false;
   state.moveOffset = null;
+  state.isResizingSelection = false;
+  state.resizeAnchor = null;
+  state.resizeSigns = null;
 });
 
 setStatus("Esperando video...");

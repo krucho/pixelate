@@ -11,13 +11,13 @@ App web estática (sin frameworks) para visualizar un video original junto a su 
 - Modos de encuadre: `fit`, `fill`, `stretch`.
 - Relación objetivo: `Original`, `1:1`, `1:2`, `2:1`.
 - Selección manual de región sobre la vista original.
+- Ajuste de selección con `handles` en esquinas y arrastre del área.
+- Opción para bloquear la selección a una relación de aspecto fija.
 - Overlay de grilla y modo freeze.
 
 ## Ejecutar localmente
 
-Como no requiere build, podés abrir `index.html` directamente en el navegador.
-
-Si preferís servir por HTTP local:
+Como no requiere build, se ejecuta con un servidor HTTP local:
 
 ```bash
 python -m http.server 8000
