@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PixelMapper</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="app-header">
+        <h1>PixelMapper</h1>
+        <p>Vista original + emulación matriz LED</p>
+      </header>
+
+      <section class="controls" aria-label="Controles">
+        <div class="control-group">
+          <label for="videoFile">Archivo local</label>
+          <input id="videoFile" type="file" accept="video/*" />
+        </div>
+
+        <div class="control-group control-group-url">
+          <label for="videoUrl">URL pública</label>
+          <input
+            id="videoUrl"
+            type="url"
+            placeholder="https://ejemplo.com/video.mp4"
+          />
+          <button id="loadUrlBtn" type="button">Cargar URL</button>
+        </div>
+
+        <div class="control-group inline">
+          <button id="playPauseBtn" type="button" disabled>Play</button>
+          <button id="resetCropBtn" type="button" disabled>Reset recorte</button>
+        </div>
+
+        <div class="control-group inline">
+          <label for="matrixCols">Cols</label>
+          <input id="matrixCols" type="number" min="2" max="256" value="16" />
+          <label for="matrixRows">Rows</label>
+          <input id="matrixRows" type="number" min="2" max="256" value="16" />
+          <select id="matrixPreset" aria-label="Preset de matriz">
+            <option value="">Preset</option>
+            <option value="16x16">16 x 16</option>
+            <option value="32x32">32 x 32</option>
+            <option value="64x32">64 x 32</option>
+            <option value="32x64">32 x 64</option>
+          </select>
+        </div>
+
+        <div class="control-group inline">
+          <label for="aspectMode">Modo de encuadre</label>
+          <select id="aspectMode">
+            <option value="fit">fit (letterbox)</option>
+            <option value="fill">fill (crop)</option>
+            <option value="stretch">stretch</option>
+          </select>
+
+          <label for="targetRatio">Relación objetivo</label>
+          <select id="targetRatio">
+            <option value="original">Original</option>
+            <option value="1:1">1:1</option>
+            <option value="1:2">1:2</option>
+            <option value="2:1">2:1</option>
+          </select>
+        </div>
+
+        <div class="control-group inline">
+          <label><input id="enableCrop" type="checkbox" /> Selección manual</label>
+          <label><input id="showGrid" type="checkbox" /> Mostrar grilla</label>
+          <label><input id="freezeFrame" type="checkbox" /> Freeze</label>
+        </div>
+
+        <p id="statusText" class="status">Esperando video...</p>
+      </section>
+
+      <section class="viewer" aria-label="Visores">
+        <article class="panel">
+          <h2>Original</h2>
+          <canvas id="originalCanvas" width="640" height="360"></canvas>
+        </article>
+
+        <article class="panel">
+          <h2>Pixelado (LED)</h2>
+          <canvas id="pixelCanvas" width="640" height="360"></canvas>
+        </article>
+      </section>
+
+      <video id="sourceVideo" preload="metadata" playsinline hidden></video>
+    </main>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
