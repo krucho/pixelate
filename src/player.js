@@ -1,5 +1,6 @@
 export function createPlayer(videoElement) {
   let objectUrl = null;
+  videoElement.loop = true;
 
   function clearSource() {
     videoElement.pause();

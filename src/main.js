@@ -39,7 +39,9 @@ const state = {
   selection: null,
   isSelecting: false,
   selectStart: null,
-  selectCurrent: null
+  selectCurrent: null,
+  isMovingSelection: false,
+  moveOffset: null
 };
 
 function setStatus(message, isError = false) {
@@ -185,9 +187,25 @@ function updatePlaybackButton() {
 function pointFromEvent(event) {
   const rect = elements.originalCanvas.getBoundingClientRect();
   return {
-    x: event.clientX - rect.left,
-    y: event.clientY - rect.top
+    x: ((event.clientX - rect.left) / rect.width) * elements.originalCanvas.width,
+    y: ((event.clientY - rect.top) / rect.height) * elements.originalCanvas.height
   };
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function isPointInsideSelection(point, selection) {
+  if (!selection) {
+    return false;
+  }
+  return (
+    point.x >= selection.x &&
+    point.x <= selection.x + selection.width &&
+    point.y >= selection.y &&
+    point.y <= selection.y + selection.height
+  );
 }
 
 function selectionPointFromEvent(event) {
@@ -201,15 +219,24 @@ function selectionPointFromEvent(event) {
   return pointToNormalized(canvasPoint.x, canvasPoint.y, drawRect);
 }
 
+async function ensurePlaybackAfterLoad() {
+  try {
+    await elements.video.play();
+  } catch (_error) {
+    // Some browsers block autoplay. User can still press Play.
+  }
+  updatePlaybackButton();
+}
+
 async function loadFromFile(file) {
   await player.loadFromFile(file);
   state.sourceReady = true;
   syncCanvasSizes();
   elements.playPauseBtn.disabled = false;
   elements.resetCropBtn.disabled = false;
-  updatePlaybackButton();
   setStatus(`Video cargado: ${file.name}`);
   renderFrame();
+  await ensurePlaybackAfterLoad();
 }
 
 async function loadFromUrl(url) {
@@ -218,11 +245,11 @@ async function loadFromUrl(url) {
   syncCanvasSizes();
   elements.playPauseBtn.disabled = false;
   elements.resetCropBtn.disabled = false;
-  updatePlaybackButton();
   setStatus(
     "Video URL cargado. Si la fuente no permite CORS, la vista pixelada puede fallar."
   );
   renderFrame();
+  await ensurePlaybackAfterLoad();
 }
 
 elements.videoFile.addEventListener("change", async (event) => {
@@ -286,6 +313,8 @@ elements.resetCropBtn.addEventListener("click", () => {
   state.selectStart = null;
   state.selectCurrent = null;
   state.isSelecting = false;
+  state.isMovingSelection = false;
+  state.moveOffset = null;
   renderFrame();
 });
 
@@ -293,20 +322,55 @@ elements.originalCanvas.addEventListener("pointerdown", (event) => {
   if (!state.sourceReady || !elements.enableCrop.checked) {
     return;
   }
-  state.isSelecting = true;
-  state.selectStart = selectionPointFromEvent(event);
-  state.selectCurrent = state.selectStart;
+  const currentPoint = selectionPointFromEvent(event);
+  if (isPointInsideSelection(currentPoint, state.selection)) {
+    state.isMovingSelection = true;
+    state.moveOffset = {
+      x: currentPoint.x - state.selection.x,
+      y: currentPoint.y - state.selection.y
+    };
+  } else {
+    state.isSelecting = true;
+    state.selectStart = currentPoint;
+    state.selectCurrent = currentPoint;
+  }
   elements.originalCanvas.setPointerCapture(event.pointerId);
 });
 
 elements.originalCanvas.addEventListener("pointermove", (event) => {
+  if (!state.sourceReady || !elements.enableCrop.checked) {
+    return;
+  }
+  const currentPoint = selectionPointFromEvent(event);
+
+  if (state.isMovingSelection && state.selection && state.moveOffset) {
+    const nextX = clamp(currentPoint.x - state.moveOffset.x, 0, 1 - state.selection.width);
+    const nextY = clamp(currentPoint.y - state.moveOffset.y, 0, 1 - state.selection.height);
+    state.selection = {
+      ...state.selection,
+      x: nextX,
+      y: nextY
+    };
+    renderFrame();
+    return;
+  }
+
   if (!state.isSelecting || !state.selectStart) {
     return;
   }
-  state.selectCurrent = selectionPointFromEvent(event);
+  state.selectCurrent = currentPoint;
+  renderFrame();
 });
 
 elements.originalCanvas.addEventListener("pointerup", (event) => {
+  if (state.isMovingSelection) {
+    state.isMovingSelection = false;
+    state.moveOffset = null;
+    elements.originalCanvas.releasePointerCapture(event.pointerId);
+    renderFrame();
+    return;
+  }
+
   if (!state.isSelecting || !state.selectStart || !state.selectCurrent) {
     return;
   }
@@ -322,6 +386,8 @@ elements.originalCanvas.addEventListener("pointercancel", () => {
   state.isSelecting = false;
   state.selectStart = null;
   state.selectCurrent = null;
+  state.isMovingSelection = false;
+  state.moveOffset = null;
 });
 
 setStatus("Esperando video...");
