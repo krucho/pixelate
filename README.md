@@ -13,6 +13,7 @@ App web estática (sin frameworks) para visualizar un video original junto a su 
 - Selección manual de región sobre la vista original.
 - Ajuste de selección con `handles` en esquinas y arrastre del área.
 - Opción para bloquear la selección a una relación de aspecto fija.
+- Selector de aspecto de selección: salida, video, matriz o presets (`1:1`, `1:2`, `2:1`).
 - Overlay de grilla y modo freeze.
 
 ## Ejecutar localmente

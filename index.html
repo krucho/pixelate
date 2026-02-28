@@ -70,6 +70,15 @@
           <label
             ><input id="lockCropAspect" type="checkbox" /> Bloquear aspecto en selección</label
           >
+          <label for="cropRatioMode">Aspecto selección</label>
+          <select id="cropRatioMode">
+            <option value="output">Vinculada a salida</option>
+            <option value="video">Original video</option>
+            <option value="matrix">Matriz (cols:rows)</option>
+            <option value="1:1">1:1</option>
+            <option value="1:2">1:2</option>
+            <option value="2:1">2:1</option>
+          </select>
           <label><input id="showGrid" type="checkbox" /> Mostrar grilla</label>
           <label><input id="freezeFrame" type="checkbox" /> Freeze</label>
         </div>

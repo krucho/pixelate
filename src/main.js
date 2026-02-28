@@ -22,6 +22,7 @@ const elements = {
   targetRatio: document.getElementById("targetRatio"),
   enableCrop: document.getElementById("enableCrop"),
   lockCropAspect: document.getElementById("lockCropAspect"),
+  cropRatioMode: document.getElementById("cropRatioMode"),
   showGrid: document.getElementById("showGrid"),
   freezeFrame: document.getElementById("freezeFrame"),
   statusText: document.getElementById("statusText"),
@@ -111,10 +112,30 @@ function getSelectionAspectRatio() {
   if (!elements.lockCropAspect.checked || !state.sourceReady) {
     return null;
   }
-  const targetRatio = parseRatio(elements.targetRatio.value);
-  if (targetRatio) {
-    return targetRatio;
+
+  const mode = elements.cropRatioMode.value;
+  if (mode === "output") {
+    const targetRatio = parseRatio(elements.targetRatio.value);
+    if (targetRatio) {
+      return targetRatio;
+    }
+    return elements.video.videoWidth / elements.video.videoHeight;
   }
+
+  if (mode === "video") {
+    return elements.video.videoWidth / elements.video.videoHeight;
+  }
+
+  if (mode === "matrix") {
+    const { cols, rows } = getMatrix();
+    return cols / rows;
+  }
+
+  const fixedRatio = parseRatio(mode);
+  if (fixedRatio) {
+    return fixedRatio;
+  }
+
   return elements.video.videoWidth / elements.video.videoHeight;
 }
 
@@ -404,6 +425,7 @@ elements.targetRatio.addEventListener("change", () => {
 });
 elements.enableCrop.addEventListener("change", renderFrame);
 elements.lockCropAspect.addEventListener("change", renderFrame);
+elements.cropRatioMode.addEventListener("change", renderFrame);
 
 elements.resetCropBtn.addEventListener("click", () => {
   state.selection = null;
