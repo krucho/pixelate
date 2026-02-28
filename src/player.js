@@ -12,8 +12,14 @@ export function createPlayer(videoElement) {
     }
   }
 
-  function waitForMetadata() {
+  function waitForMetadata(timeoutMs = 15000) {
+    if (videoElement.readyState >= 1) {
+      return Promise.resolve();
+    }
+
     return new Promise((resolve, reject) => {
+      let timeoutId = null;
+
       function onLoaded() {
         cleanup();
         resolve();
@@ -24,13 +30,26 @@ export function createPlayer(videoElement) {
         reject(new Error("No se pudo cargar el video."));
       }
 
+      function onTimeout() {
+        cleanup();
+        reject(
+          new Error(
+            "Timeout cargando el video. Revisá la URL, CORS o que el servidor permita range requests."
+          )
+        );
+      }
+
       function cleanup() {
         videoElement.removeEventListener("loadedmetadata", onLoaded);
         videoElement.removeEventListener("error", onError);
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
       }
 
       videoElement.addEventListener("loadedmetadata", onLoaded);
       videoElement.addEventListener("error", onError);
+      timeoutId = setTimeout(onTimeout, timeoutMs);
     });
   }
 
@@ -39,9 +58,11 @@ export function createPlayer(videoElement) {
       throw new Error("No se seleccionó archivo.");
     }
     clearSource();
+    const metadataPromise = waitForMetadata();
     objectUrl = URL.createObjectURL(file);
     videoElement.src = objectUrl;
-    await waitForMetadata();
+    videoElement.load();
+    await metadataPromise;
   }
 
   async function loadFromUrl(url) {
@@ -49,9 +70,11 @@ export function createPlayer(videoElement) {
       throw new Error("Ingresá una URL.");
     }
     clearSource();
+    const metadataPromise = waitForMetadata();
     videoElement.crossOrigin = "anonymous";
     videoElement.src = url;
-    await waitForMetadata();
+    videoElement.load();
+    await metadataPromise;
   }
 
   function playPause() {
