@@ -139,6 +139,15 @@ function getSelectionAspectRatio() {
   return elements.video.videoWidth / elements.video.videoHeight;
 }
 
+function getSelectionAspectRatioNormalized() {
+  const sourceAspect = getSelectionAspectRatio();
+  if (!sourceAspect || !state.sourceReady) {
+    return null;
+  }
+  const videoAspect = elements.video.videoWidth / elements.video.videoHeight;
+  return sourceAspect / videoAspect;
+}
+
 function getSelectionHandles(selection) {
   return {
     nw: { x: selection.x, y: selection.y },
@@ -152,7 +161,7 @@ function buildSelectionFromAnchor(anchor, point, forcedSigns = null) {
   const xSign = forcedSigns?.x ?? (point.x >= anchor.x ? 1 : -1);
   const ySign = forcedSigns?.y ?? (point.y >= anchor.y ? 1 : -1);
   const minBase = 0.01;
-  const targetAspect = getSelectionAspectRatio();
+  const targetAspect = getSelectionAspectRatioNormalized();
 
   const maxWidth = xSign > 0 ? 1 - anchor.x : anchor.x;
   const maxHeight = ySign > 0 ? 1 - anchor.y : anchor.y;
