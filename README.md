@@ -33,11 +33,11 @@ Luego abrir `http://localhost:8000`.
 3. Seleccionar deploy desde branch (`main` o `gh-pages`) y carpeta raíz.
 4. Guardar y abrir la URL publicada.
 
-## Notas sobre URL de video y CORS
+## Notas sobre URL de video
 
-- Para procesar frames de videos remotos en `<canvas>`, el servidor del video debe permitir CORS.
-- Si no lo permite, el navegador bloquea la lectura de píxeles y la vista pixelada puede fallar.
-- Con archivos locales no hay ese problema.
+- La URL debe apuntar al archivo de video directo (por ejemplo `.mp4`, `.webm`), no a una página HTML.
+- Algunos servidores bloquean hotlinking o no soportan `range requests`; en esos casos el video puede no cargar.
+- Si un host aplica restricciones adicionales del navegador, puede haber diferencias entre proveedores.
 
 ## Verificación manual sugerida
 

@@ -372,7 +372,7 @@ async function loadFromUrl(url) {
   elements.playPauseBtn.disabled = false;
   elements.resetCropBtn.disabled = false;
   setStatus(
-    "Video URL cargado. Si la fuente no permite CORS, la vista pixelada puede fallar."
+    "Video URL cargado. Si no reproduce, revisá que la URL sea directa al archivo de video y permita requests parciales (range)."
   );
   renderFrame();
   await ensurePlaybackAfterLoad();

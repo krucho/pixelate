@@ -5,6 +5,7 @@ export function createPlayer(videoElement) {
   function clearSource() {
     videoElement.pause();
     videoElement.removeAttribute("src");
+    videoElement.removeAttribute("crossorigin");
     videoElement.load();
     if (objectUrl) {
       URL.revokeObjectURL(objectUrl);
@@ -71,7 +72,6 @@ export function createPlayer(videoElement) {
     }
     clearSource();
     const metadataPromise = waitForMetadata();
-    videoElement.crossOrigin = "anonymous";
     videoElement.src = url;
     videoElement.load();
     await metadataPromise;
